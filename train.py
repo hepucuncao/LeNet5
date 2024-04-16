@@ -1,9 +1,9 @@
-import torch
-from torch import nn
+import torch  #用来加载数据集
 from net import LeNet5
-from torch.optim import lr_scheduler #优化器
+import common
 from torchvision import datasets,transforms #导入数据集
 import os
+import numpy as np 
 
 #数据集中的数据是向量格式，要输入到神经网络中要将数据转化为tensor格式
 data_transform=transforms.Compose([
@@ -30,43 +30,17 @@ train_dataloader=torch.utils.data.DataLoader(dataset=train_dataset,batch_size=16
 test_dataset = datasets.MNIST(root='./data', train=False, transform=data_transform, download=True)
 test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=16, shuffle=True)
 
-# 加载训练数据集2
-#train_dataset = datasets.FashionMNIST(root='./data2', train=True, transform=data_transform, download=True)
-#train_dataloader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=16, shuffle=True)
-
-# 加载测试数据集2
-#test_dataset = datasets.FashionMNIST(root='./data1', train=False, transform=data_transform, download=True)
-#test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=16, shuffle=True)
-
-# 加载训练数据集3
-#train_dataset = datasets.KMNIST(root='./data3', train=True, transform=data_transform, download=True)
-#train_dataloader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=16, shuffle=True)
-
-# 加载测试数据集3
-#test_dataset = datasets.KMNIST(root='./data3', train=False, transform=data_transform, download=True)
-#test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=16, shuffle=True)#test_dataloader=torch.utils.data.DataLoader(dataset=test_dataset,batch_size=16,shuffle=True)
-
-#加载训练数据集4
-#train_dataset=datasets.CIFAR10(root='./data2',train=True,transform=train_transform,download=True) #下载手写数字数据集
-#train_dataloader=torch.utils.data.DataLoader(dataset=train_dataset,batch_size=16,shuffle=True)
-#batch_size:一组数据有多少个批次
-# shuffle：是否打乱
-
-#加载测试数据集4
-#test_dataset=datasets.CIFAR10(root='./data2',train=False,transform=test_transform,download=True) #下载训练集
-#test_dataloader=torch.utils.data.DataLoader(dataset=test_dataset,batch_size=16,shuffle=True)
-
 #如果有显卡，可以转到GPU
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
 #调用net里面定义的模型，将模型数据转到GPU
 model=LeNet5().to(device)
 
-#定义一个损失函数：交叉熵损失
-loss_fn=nn.CrossEntropyLoss()
+#使用损失函数：交叉熵损失
+loss_fn=common.mean_squared_error()
 
-#定义一个优化器
-optimizer=torch.optim.SGD(model.parameters(),lr=1e-3,momentum=0.9)
+#使用优化器
+optimizer=common.SGD(model.parameters(),lr=1e-3,momentum=0.9)
 #lr:损失率 momentum：动量，主要是应对不同方向上梯度相差大的情况
 
 #学习率每隔10轮，变为原来的0.1，防止训练轮数增多波动太大
@@ -80,8 +54,8 @@ def train(dataloader,model,loss_fn,optimizer):
         X,y=X.to(device),y.to(device)
         output=model(X)
         cur_loss=loss_fn(output,y)  #计算损失：把输出结果和真实值做交叉熵
-        _,pred=torch.max(output,axis=1) #输出最大概率值
-        cur_acc=torch.sum(y==pred)/output.shape[0] #求一批次图片精确度的累加和
+        _,pred=np.max(output,axis=1) #输出最大概率值
+        cur_acc=np.sum(y==pred)/output.shape[0] #求一批次图片精确度的累加和
 
         optimizer.zero_grad() #反相器梯度清零
         cur_loss.backward()  #反向传播
@@ -102,8 +76,8 @@ def val(dataloader,model,loss_fn):
             X, y = X.to(device), y.to(device)
             output = model(X)
             cur_loss = loss_fn(output, y)  # 计算损失：把输出结果和真实值做交叉熵
-            _, pred = torch.max(output, axis=1)  # 输出最大概率值
-            cur_acc = torch.sum(y == pred) / output.shape[0]  # 求一批次图片精确度的累加和
+            _, pred = np.max(output, axis=1)  # 输出最大概率值
+            cur_acc = np.sum(y == pred) / output.shape[0]  # 求一批次图片精确度的累加和
 
             loss += cur_loss.item()  # 把这一批次的loss值累加在一起
             current += cur_acc.item()
@@ -113,23 +87,18 @@ def val(dataloader,model,loss_fn):
         return current/n
 
 #开始训练
-epoch=50  #训练轮次
+epoch=100  #训练轮次
 min_acc=0 #最小精确度
 for t in range(epoch):
     print(f'epoch{t+1}\n---------------')
     train(train_dataloader,model,loss_fn,optimizer)
     a=val(test_dataloader,model,loss_fn)
-    #保存最好的模型权重
+    #保存最好的模型权重9
     if a>min_acc:
         folder='save_model'
         if not os.path.exists(folder):
             os.mkdir('save_model')
         min_acc=a
         print('save best model')
-        torch.save(model.state_dict(),'save_model/best_model.pth')
+        np.save(model.state_dict(),'save_model/best_model.pth')
 print('Done!')
-
-#pth3是CIFAR10
-#pth是KMIST
-#pth2是MIST
-#pth4是STL10
